@@ -192,20 +192,28 @@ def build_optimizer(cfg, model, contiguous=True):
     if contiguous:
         params = ContiguousParams(params)
     solver_opt = cfg.SOLVER.OPT
+    opt_cls = getattr(torch.optim, solver_opt) if solver_opt != "SGD" else torch.optim.SGD
+    opt_cls = maybe_add_gradient_clipping(cfg, opt_cls)
+    opt_cls = maybe_add_freeze_layer(cfg, opt_cls)
+
+    if contiguous:
+        # PyTorch 2.0+ default zero_grad(set_to_none=True) drops the .grad attribute on buffer,
+        # breaking ContiguousParams shared gradient view and causing GradScaler inf check assertion.
+        # Overriding zero_grad to preserve the buffer avoids this.
+        OriginalCls = opt_cls
+        class ContiguousOptimizer(OriginalCls):
+            def zero_grad(self, set_to_none: bool = False):
+                super().zero_grad(set_to_none=False)
+        opt_cls = ContiguousOptimizer
+
     if solver_opt == "SGD":
-        return maybe_add_freeze_layer(
-            cfg,
-            maybe_add_gradient_clipping(cfg, torch.optim.SGD)
-        )(
+        return opt_cls(
             params.contiguous() if contiguous else params,
             momentum=cfg.SOLVER.MOMENTUM,
             nesterov=cfg.SOLVER.NESTEROV,
         ), params
     else:
-        return maybe_add_freeze_layer(
-            cfg,
-            maybe_add_gradient_clipping(cfg, getattr(torch.optim, solver_opt))
-        )(params.contiguous() if contiguous else params), params
+        return opt_cls(params.contiguous() if contiguous else params), params
 
 
 def get_default_optimizer_params(
