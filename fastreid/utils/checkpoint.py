@@ -88,10 +88,18 @@ class Checkpointer(object):
 
         basename = "{}.pth".format(name)
         save_file = os.path.join(self.save_dir, basename)
+        tmp_file = os.path.join(self.save_dir, f".{basename}.tmp")
         assert os.path.basename(save_file) == basename, basename
         self.logger.info("Saving checkpoint to {}".format(save_file))
-        with PathManager.open(save_file, "wb") as f:
+        with PathManager.open(tmp_file, "wb") as f:
             torch.save(data, f)
+        # Atomic rename prevents corrupted/partial checkpoints on sudden interruption
+        if os.path.exists(save_file):
+            try:
+                os.remove(save_file)
+            except OSError:
+                pass
+        os.replace(tmp_file, save_file)
         self.tag_last_checkpoint(basename)
 
     def load(self, path: str, checkpointables: Optional[List[str]] = None) -> object:
@@ -334,16 +342,16 @@ class PeriodicCheckpointer:
                     "model_best", **additional_state
                 )
                 self.best_metric = additional_state["metric"]
-            # # Put it behind best model save to make last checkpoint valid
-            # self.checkpointer.save(
-            #     "model_{:04d}".format(epoch), **additional_state
-            # )
+            # Save latest periodic checkpoint so training can reliably resume
+            self.checkpointer.save(
+                "model_last", **additional_state
+            )
         if epoch >= self.max_epoch - 1:
             if additional_state["metric"] > self.best_metric:
                 self.checkpointer.save(
                     "model_best", **additional_state
                 )
-            # self.checkpointer.save("model_final", **additional_state)
+            self.checkpointer.save("model_final", **additional_state)
 
     def save(self, name: str, **kwargs: Any):
         """

@@ -574,18 +574,13 @@ def resize_pos_embed(posemb, posemb_new, hight, width):
 
 
 def graph_norm(A):
-    # A = A + I    A: (bs, n, num_nodes, num_nodes)  [B, N_, P+1, P+1]
-    # Degree
-    d = A.sum(-1)  # (bs, n, num_nodes)
-    # D = D^-1/2
-    d = torch.pow(d.clamp_min(torch.finfo(A.dtype).eps), -0.5)
-    D = A.detach().clone()
-    for batch_index, batch in enumerate(A):
-        for class_index, _ in enumerate(batch):
-            D[batch_index, class_index] = torch.diag(d[batch_index, class_index])
-    norm_A = torch.stack([D_i.bmm(A_i).bmm(D_i) for D_i, A_i in zip(D, A)]).detach()
-
-    return norm_A
+    # Degree: A has shape [..., N_nodes, N_nodes]
+    d = A.sum(-1)
+    # D^(-1/2) with numerical stability clamping
+    inv_sqrt_d = torch.pow(d.clamp_min(torch.finfo(A.dtype).eps), -0.5)
+    # D^(-1/2) * A * D^(-1/2) vectorized across all batch and expert dimensions
+    norm_A = inv_sqrt_d.unsqueeze(-1) * A * inv_sqrt_d.unsqueeze(-2)
+    return norm_A.detach()
 
 
 def cal_similarity(x, p=2, dim=1):
