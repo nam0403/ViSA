@@ -1,3 +1,18 @@
+import sys
+import types
+from unittest.mock import MagicMock
+
+if "yacs" not in sys.modules:
+    try:
+        import yacs
+    except ImportError:
+        yacs = types.ModuleType("yacs")
+        yacs_config = types.ModuleType("yacs.config")
+        yacs_config.CfgNode = MagicMock
+        yacs.config = yacs_config
+        sys.modules["yacs"] = yacs
+        sys.modules["yacs.config"] = yacs_config
+
 import unittest
 
 import torch

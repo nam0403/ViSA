@@ -87,8 +87,15 @@ def default_setup(cfg, args):
         PathManager.mkdirs(output_dir)
 
     rank = comm.get_rank()
-    # setup_logger(output_dir, distributed_rank=rank, name="fvcore")
-    logger = setup_logger(output_dir + f'/expert{cfg.MODEL.BACKBONE.EXPERTS}_topk{cfg.MODEL.BACKBONE.TOP_K}_promptLen{cfg.MODEL.BACKBONE.PROMPT_LEN}_grpahTopk{cfg.MODEL.BACKBONE.GRAPH_TOP_K}.txt', distributed_rank=rank)
+    log_file = (
+        os.path.join(
+            output_dir,
+            f"expert{cfg.MODEL.BACKBONE.EXPERTS}_topk{cfg.MODEL.BACKBONE.TOP_K}_promptLen{cfg.MODEL.BACKBONE.PROMPT_LEN}_grpahTopk{cfg.MODEL.BACKBONE.GRAPH_TOP_K}.txt"
+        )
+        if output_dir
+        else None
+    )
+    logger = setup_logger(log_file, distributed_rank=rank)
 
     logger.info("Rank of current process: {}. World size: {}".format(rank, comm.get_world_size()))
     logger.info("Environment info:\n" + collect_env_info())
@@ -227,15 +234,18 @@ class DefaultTrainer(TrainerBase):
         self.iters_per_epoch = len(data_loader.dataset) // cfg.SOLVER.IMS_PER_BATCH
         self.scheduler = self.build_lr_scheduler(cfg, optimizer, self.iters_per_epoch)
 
-        # Assume no other objects need to be checkpointed.
-        # We can later make it checkpoint the stateful hooks
+        checkpointables = {
+            "optimizer": optimizer,
+            **self.scheduler,
+        }
+        if cfg.SOLVER.AMP.ENABLED and hasattr(self._trainer, "grad_scaler") and self._trainer.grad_scaler is not None:
+            checkpointables["grad_scaler"] = self._trainer.grad_scaler
+
         self.checkpointer = Checkpointer(
-            # Assume you want to save checkpoints together with logs/statistics
             model,
             cfg.OUTPUT_DIR,
             save_to_disk=comm.is_main_process(),
-            optimizer=optimizer,
-            **self.scheduler,
+            **checkpointables,
         )
 
         self.start_epoch = 0
