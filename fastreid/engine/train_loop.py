@@ -348,6 +348,9 @@ class AMPTrainer(SimpleTrainer):
 
         self._write_metrics(loss_dict, data_time)
 
+        # Unscale before the optimizer wrapper clips gradients. This also
+        # records the optimizer's inf checks for current PyTorch GradScaler.
+        self.grad_scaler.unscale_(self.optimizer)
         self.grad_scaler.step(self.optimizer)
         self.grad_scaler.update()
         if isinstance(self.param_wrapper, ContiguousParams):

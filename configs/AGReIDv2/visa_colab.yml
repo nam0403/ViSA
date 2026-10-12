@@ -68,7 +68,7 @@ DATALOADER:
 
 SOLVER:
   AMP:
-    ENABLED: True
+    ENABLED: False
   OPT: SGD
   MAX_EPOCH: 120
   BASE_LR: 0.008
