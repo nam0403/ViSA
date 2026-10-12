@@ -1,3 +1,5 @@
+import os
+
 from .config import CfgNode as CN
 
 # -----------------------------------------------------------------------------
@@ -229,6 +231,8 @@ _C.DATASETS = CN()
 _C.DATASETS.NAMES = ("Market1501",)
 # List of the dataset names for testing
 _C.DATASETS.TESTS = ("Market1501",)
+# Root directory passed to dataset loaders.
+_C.DATASETS.ROOT = os.getenv("FASTREID_DATASETS", "datasets")
 # Combine trainset and testset joint training
 _C.DATASETS.COMBINEALL = False
 
