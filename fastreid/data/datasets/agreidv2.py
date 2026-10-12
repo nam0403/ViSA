@@ -11,6 +11,18 @@ from .bases import ImageDataset
 from ..datasets import DATASET_REGISTRY
 
 
+def _resolve_data_dir(root):
+    data_dir = root
+    nested_data_dir = osp.join(root, 'AG-ReID.v2')
+    if osp.isdir(nested_data_dir):
+        data_dir = nested_data_dir
+    elif osp.basename(osp.normpath(root)) != 'AG-ReID.v2':
+        warnings.warn('The current data structure is deprecated. Please '
+                      'put data folders such as "bounding_box_train" under '
+                      '"AG-ReID".')
+    return data_dir
+
+
 @DATASET_REGISTRY.register()
 class AG_ReID_v2(ImageDataset):
 
@@ -18,14 +30,7 @@ class AG_ReID_v2(ImageDataset):
                  verbose=True, **kwargs):
         
         self.dataset_dir = root
-        self.data_dir = self.dataset_dir
-        data_dir = osp.join(self.data_dir, 'AG-ReID.v2')
-        if osp.isdir(data_dir):
-            self.data_dir = data_dir
-        else:
-            warnings.warn('The current data structure is deprecated. Please '
-                          'put data folders such as "bounding_box_train" under '
-                          '"AG-ReID".')
+        self.data_dir = _resolve_data_dir(root)
         self.train_dir = osp.join(self.data_dir, 'train_all')
 
         self.query_dir = osp.join(self.data_dir, 'query')
@@ -186,14 +191,7 @@ class AG_ReID_v2_G2A(ImageDataset):
                  verbose=True, **kwargs):
         
         self.dataset_dir = root
-        self.data_dir = self.dataset_dir
-        data_dir = osp.join(self.data_dir, 'AG-ReID.v2')
-        if osp.isdir(data_dir):
-            self.data_dir = data_dir
-        else:
-            warnings.warn('The current data structure is deprecated. Please '
-                          'put data folders such as "bounding_box_train" under '
-                          '"AG-ReID".')
+        self.data_dir = _resolve_data_dir(root)
         self.train_dir = osp.join(self.data_dir, 'train_all')
 
         self.query_dir = osp.join(self.data_dir, 'query')
@@ -354,14 +352,7 @@ class AG_ReID_v2_A2W(ImageDataset):
                  verbose=True, **kwargs):
         
         self.dataset_dir = root
-        self.data_dir = self.dataset_dir
-        data_dir = osp.join(self.data_dir, 'AG-ReID.v2')
-        if osp.isdir(data_dir):
-            self.data_dir = data_dir
-        else:
-            warnings.warn('The current data structure is deprecated. Please '
-                          'put data folders such as "bounding_box_train" under '
-                          '"AG-ReID".')
+        self.data_dir = _resolve_data_dir(root)
         self.train_dir = osp.join(self.data_dir, 'train_all')
 
         self.query_dir = osp.join(self.data_dir, 'query')
@@ -523,14 +514,7 @@ class AG_ReID_v2_W2A(ImageDataset):
                  verbose=True, **kwargs):
         
         self.dataset_dir = root
-        self.data_dir = self.dataset_dir
-        data_dir = osp.join(self.data_dir, 'AG-ReID.v2')
-        if osp.isdir(data_dir):
-            self.data_dir = data_dir
-        else:
-            warnings.warn('The current data structure is deprecated. Please '
-                          'put data folders such as "bounding_box_train" under '
-                          '"AG-ReID".')
+        self.data_dir = _resolve_data_dir(root)
         self.train_dir = osp.join(self.data_dir, 'train_all')
 
         self.query_dir = osp.join(self.data_dir, 'query')
