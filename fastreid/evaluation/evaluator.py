@@ -107,6 +107,7 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
     num_warmup = min(5, total - 1)
     start_time = time.perf_counter()
     total_compute_time = 0
+    use_cuda = torch.cuda.is_available()
     with inference_context(model), torch.no_grad():
         for idx, inputs in enumerate(data_loader):
             if idx == num_warmup:
@@ -114,13 +115,14 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
                 total_compute_time = 0
 
             start_compute_time = time.perf_counter()
-            outputs = model(inputs)
-            # Flip test
-            if flip_test:
-                inputs["images"] = inputs["images"].flip(dims=[3])
-                flip_outputs = model(inputs)
-                outputs = (outputs + flip_outputs) / 2
-            if torch.cuda.is_available():
+            with torch.cuda.amp.autocast(enabled=use_cuda):
+                outputs = model(inputs)
+                # Flip test
+                if flip_test:
+                    inputs["images"] = inputs["images"].flip(dims=[3])
+                    flip_outputs = model(inputs)
+                    outputs = (outputs + flip_outputs) / 2
+            if use_cuda:
                 torch.cuda.synchronize()
             total_compute_time += time.perf_counter() - start_compute_time
             evaluator.process(inputs, outputs)
@@ -137,6 +139,11 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
                     ),
                     n=30,
                 )
+
+    if hasattr(data_loader, "shutdown"):
+        data_loader.shutdown()
+    if use_cuda:
+        torch.cuda.empty_cache()
 
     # Measure the time only for this worker (before the synchronization barrier)
     total_time = time.perf_counter() - start_time

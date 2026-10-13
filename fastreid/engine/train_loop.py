@@ -221,6 +221,7 @@ class SimpleTrainer(TrainerBase):
         self._data_loader_iter = iter(data_loader)
         self.optimizer = optimizer
         self.param_wrapper = param_wrapper
+        self._metric_stream = torch.cuda.Stream() if torch.cuda.is_available() else None
 
     def run_step(self):
         """
@@ -245,7 +246,7 @@ class SimpleTrainer(TrainerBase):
         If you need accumulate gradients or something similar, you can
         wrap the optimizer with your custom `zero_grad()` method.
         """
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=False)
 
         losses.backward()
 
@@ -267,8 +268,9 @@ class SimpleTrainer(TrainerBase):
         """
         device = next(iter(loss_dict.values())).device
 
-        # Use a new stream so these ops don't wait for DDP or backward
-        with torch.cuda.stream(torch.cuda.Stream() if device.type == "cuda" else None):
+        # Reuse pre-allocated metric stream so these ops don't wait for DDP or backward
+        stream = self._metric_stream if device.type == "cuda" else None
+        with torch.cuda.stream(stream):
             metrics_dict = {k: v.detach().cpu().item() for k, v in loss_dict.items()}
             metrics_dict["data_time"] = data_time
 
@@ -343,7 +345,7 @@ class AMPTrainer(SimpleTrainer):
             loss_dict = self.model(data)
             losses = sum(loss_dict.values())
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=False)
         self.grad_scaler.scale(losses).backward()
 
         self._write_metrics(loss_dict, data_time)
