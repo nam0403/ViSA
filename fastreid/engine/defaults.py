@@ -468,6 +468,12 @@ class DefaultTrainer(TrainerBase):
                 results_i['dataset'] = dataset_name
                 print_csv_format(results_i)
 
+            if hasattr(data_loader, "shutdown"):
+                data_loader.shutdown()
+            del data_loader, evaluator
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
         if len(results) == 1:
             results = list(results.values())[0]
 
